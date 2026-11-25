@@ -8,8 +8,11 @@
         Width="448" SizeToContent="Height"
         MinWidth="380" MaxWidth="560"
         WindowStartupLocation="CenterOwner"
+        ExtendClientAreaToDecorationsHint="True"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaTitleBarHeightHint="-1"
         CanResize="False"
-        Background="{DynamicResource SurfaceChromeBrush}"
+        Background="{DynamicResource SurfacePanelBrush}"
         Foreground="{DynamicResource TextPrimaryBrush}"
         TransparencyLevelHint="Mica, AcrylicBlur">
 
@@ -17,26 +20,35 @@
             BorderBrush="{DynamicResource BorderSubtleBrush}"
             BorderThickness="1"
             CornerRadius="{StaticResource RadiusOuter16}"
-            BoxShadow="{StaticResource ShadowModal}"
-            Margin="10">
+            BoxShadow="{StaticResource ShadowModal}">
         <Panel>
             <Grid RowDefinitions="Auto,*,Auto" Margin="20">
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12"
-                            VerticalAlignment="Center" Margin="0,0,0,16">
-                    <Border x:Name="IconBadge" Width="38" Height="38"
-                            CornerRadius="{StaticResource RadiusInner8}"
-                            Background="{DynamicResource StatusInfoBgBrush}"
-                            BorderBrush="{DynamicResource StatusInfoBorderBrush}"
-                            BorderThickness="1"
-                            HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <lucide:Lucide x:Name="IconLucide" Icon="Info" Width="18" Height="18"
-                                       StrokeBrush="{DynamicResource StatusInfoBrush}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <TextBlock x:Name="TxtTitle" Text="{DynamicResource Loc_Msg_InfoTitle}"
-                               FontSize="16" FontWeight="Bold" VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                </StackPanel>
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16"
+                      Background="Transparent" PointerPressed="Header_PointerPressed">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12"
+                                VerticalAlignment="Center">
+                        <Border x:Name="IconBadge" Width="38" Height="38"
+                                CornerRadius="{StaticResource RadiusInner8}"
+                                Background="{DynamicResource StatusInfoBgBrush}"
+                                BorderBrush="{DynamicResource StatusInfoBorderBrush}"
+                                BorderThickness="1"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <lucide:Lucide x:Name="IconLucide" Icon="Info" Width="18" Height="18"
+                                           StrokeBrush="{DynamicResource StatusInfoBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock x:Name="TxtTitle" Text="{DynamicResource Loc_Msg_InfoTitle}"
+                                   FontSize="16" FontWeight="Bold" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" x:Name="BtnCloseHeader" Classes="StudioIconBtn"
+                            Width="28" Height="28" VerticalAlignment="Center"
+                            Click="BtnCloseHeader_Click" ToolTip.Tip="{DynamicResource Loc_Btn_Close}">
+                        <lucide:Lucide Icon="X" Width="14" Height="14"
+                                       StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                    </Button>
+                </Grid>
 
                 <Border Grid.Row="1"
                         Background="{DynamicResource SurfaceCardBrush}"

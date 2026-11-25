@@ -8,8 +8,11 @@
         Width="448" SizeToContent="Height"
         MinWidth="380" MaxWidth="600"
         WindowStartupLocation="CenterOwner"
+        ExtendClientAreaToDecorationsHint="True"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaTitleBarHeightHint="-1"
         CanResize="False"
-        Background="{DynamicResource SurfaceChromeBrush}"
+        Background="{DynamicResource SurfacePanelBrush}"
         Foreground="{DynamicResource TextPrimaryBrush}"
         TransparencyLevelHint="Mica, AcrylicBlur">
 
@@ -17,25 +20,34 @@
             BorderBrush="{DynamicResource BorderSubtleBrush}"
             BorderThickness="1"
             CornerRadius="{StaticResource RadiusOuter16}"
-            BoxShadow="{StaticResource ShadowModal}"
-            Margin="10">
+            BoxShadow="{StaticResource ShadowModal}">
         <Panel>
             <Grid RowDefinitions="Auto,*,Auto" Margin="20">
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12"
-                            VerticalAlignment="Center" Margin="0,0,0,14">
-                    <Border Width="36" Height="36"
-                            CornerRadius="{StaticResource RadiusInner8}"
-                            Background="{DynamicResource StatusInfoBgBrush}"
-                            BorderBrush="{DynamicResource StatusInfoBorderBrush}"
-                            BorderThickness="1">
-                        <lucide:Lucide Icon="Pencil" Width="16" Height="16"
-                                       StrokeBrush="{DynamicResource StatusInfoBrush}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <TextBlock x:Name="TxtTitle" Text="{DynamicResource Loc_InputDialog_DefaultTitle}"
-                               FontSize="16" FontWeight="Bold" VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                </StackPanel>
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14"
+                      Background="Transparent" PointerPressed="Header_PointerPressed">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12"
+                                VerticalAlignment="Center">
+                        <Border x:Name="IconBadge" Width="36" Height="36"
+                                CornerRadius="{StaticResource RadiusInner8}"
+                                Background="{DynamicResource StatusInfoBgBrush}"
+                                BorderBrush="{DynamicResource StatusInfoBorderBrush}"
+                                BorderThickness="1">
+                            <lucide:Lucide x:Name="IconLucide" Icon="Pencil" Width="16" Height="16"
+                                           StrokeBrush="{DynamicResource StatusInfoBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock x:Name="TxtTitle" Text="{DynamicResource Loc_InputDialog_DefaultTitle}"
+                                   FontSize="16" FontWeight="Bold" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" x:Name="BtnCloseHeader" Classes="StudioIconBtn"
+                            Width="28" Height="28" VerticalAlignment="Center"
+                            Click="BtnCancel_Click" ToolTip.Tip="{DynamicResource Loc_Btn_Close}">
+                        <lucide:Lucide Icon="X" Width="14" Height="14"
+                                       StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                    </Button>
+                </Grid>
 
                 <Border Grid.Row="1"
                         Background="{DynamicResource SurfaceCardBrush}"
@@ -52,7 +64,34 @@
                         <TextBox x:Name="TxtInput"
                                  CornerRadius="{StaticResource RadiusInner8}"
                                  Padding="10,8" FontSize="13"
-                                 KeyDown="TxtInput_KeyDown" />
+                                 KeyDown="TxtInput_KeyDown"
+                                 TextChanged="TxtPasswordInput_TextChanged">
+                            <TextBox.InnerRightContent>
+                                <Button x:Name="BtnToggleReveal" Classes="StudioIconBtn"
+                                        Width="28" Height="28" Margin="0,0,4,0"
+                                        IsVisible="False" IsTabStop="False"
+                                        Click="BtnToggleReveal_Click"
+                                        ToolTip.Tip="{DynamicResource Loc_InputDialog_TogglePasswordTip}">
+                                    <lucide:Lucide x:Name="IconToggleReveal" Icon="Eye" Width="14" Height="14"
+                                                   StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                                </Button>
+                            </TextBox.InnerRightContent>
+                        </TextBox>
+                        <StackPanel x:Name="PnlConfirmPassword" Spacing="6" IsVisible="False">
+                            <TextBlock Text="{DynamicResource Loc_InputDialog_ConfirmPasswordLabel}"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <TextBox x:Name="TxtConfirmInput"
+                                     CornerRadius="{StaticResource RadiusInner8}"
+                                     Padding="10,8" FontSize="13"
+                                     PlaceholderText="{DynamicResource Loc_InputDialog_ConfirmPasswordPlaceholder}"
+                                     KeyDown="TxtConfirmInput_KeyDown"
+                                     TextChanged="TxtPasswordInput_TextChanged" />
+                        </StackPanel>
+                        <TextBlock x:Name="TxtValidationError"
+                                   IsVisible="False"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource StatusDangerBrush}"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 

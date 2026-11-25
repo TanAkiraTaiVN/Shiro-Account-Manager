@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -174,9 +176,11 @@ namespace Shiro.Services
 
         public async Task<bool> ExportVaultAsync()
         {
-            string pass = await AppServices.Dialogs.ShowSecretPromptAsync(
-                LocalizationService.Get("Settings.VaultPassphrasePrompt"),
-                LocalizationService.Get("Settings.ExportVaultBtn"));
+            string prompt = LocalizationService.Get("Settings.VaultPassphrasePrompt");
+            string title = LocalizationService.Get("Settings.ExportVaultBtn");
+            string pass = AppServices.Dialogs is AvaloniaDialogService avaloniaDialogs
+                ? await avaloniaDialogs.ShowConfirmedSecretPromptAsync(prompt, title)
+                : await AppServices.Dialogs.ShowSecretPromptAsync(prompt, title);
             if (string.IsNullOrWhiteSpace(pass) || pass == "/UC") return false;
 
             string? path = await ResolveExportDestinationAsync();
@@ -195,6 +199,90 @@ namespace Shiro.Services
             return true;
         }
 
+        internal static IReadOnlyList<Avalonia.Platform.Storage.FilePickerFileType> CreateVaultFileTypes()
+        {
+            return
+            [
+                new Avalonia.Platform.Storage.FilePickerFileType(LocalizationService.Get("Settings.VaultFileTypeName"))
+                {
+                    Patterns = ["*.shirovault"]
+                },
+                Avalonia.Platform.Storage.FilePickerFileTypes.All
+            ];
+        }
+
+        internal static IReadOnlyList<Avalonia.Platform.Storage.FilePickerFileType> CreateVaultImportFileTypes()
+        {
+            return
+            [
+                new Avalonia.Platform.Storage.FilePickerFileType(LocalizationService.Get("Settings.VaultAndBackupFileTypeName"))
+                {
+                    Patterns = ["*.shirovault", "*.bak", "*.backup"]
+                },
+                new Avalonia.Platform.Storage.FilePickerFileType(LocalizationService.Get("Settings.VaultFileTypeName"))
+                {
+                    Patterns = ["*.shirovault"]
+                },
+                new Avalonia.Platform.Storage.FilePickerFileType(LocalizationService.Get("Settings.BackupFileTypeName"))
+                {
+                    Patterns = ["*.bak", "*.backup"]
+                },
+                Avalonia.Platform.Storage.FilePickerFileTypes.All
+            ];
+        }
+
+        internal static Avalonia.Platform.Storage.FilePickerSaveOptions CreateVaultSaveOptions(
+            string suggestedFileName,
+            Avalonia.Platform.Storage.IStorageFolder? startLocation)
+        {
+            return new Avalonia.Platform.Storage.FilePickerSaveOptions
+            {
+                Title = LocalizationService.Get("Settings.ExportVaultBtn"),
+                SuggestedFileName = suggestedFileName,
+                DefaultExtension = "shirovault",
+                ShowOverwritePrompt = true,
+                FileTypeChoices = CreateVaultFileTypes(),
+                SuggestedStartLocation = startLocation
+            };
+        }
+
+        internal static Avalonia.Platform.Storage.FilePickerOpenOptions CreateVaultOpenOptions(
+            Avalonia.Platform.Storage.IStorageFolder? startLocation)
+        {
+            return new Avalonia.Platform.Storage.FilePickerOpenOptions
+            {
+                Title = LocalizationService.Get("Settings.ImportVaultBtn"),
+                AllowMultiple = false,
+                FileTypeFilter = CreateVaultImportFileTypes(),
+                SuggestedStartLocation = startLocation
+            };
+        }
+
+        private static async Task<Avalonia.Platform.Storage.IStorageFolder?> TryGetSuggestedVaultStartLocationAsync(
+            Avalonia.Platform.Storage.IStorageProvider storageProvider)
+        {
+            try
+            {
+                var docsFolder = await storageProvider.TryGetWellKnownFolderAsync(Avalonia.Platform.Storage.WellKnownFolder.Documents);
+                if (docsFolder != null)
+                    return docsFolder;
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger.Debug($"Documents folder lookup failed: {ex.Message}");
+            }
+
+            try
+            {
+                return await storageProvider.TryGetWellKnownFolderAsync(Avalonia.Platform.Storage.WellKnownFolder.Desktop);
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger.Debug($"Desktop folder lookup failed: {ex.Message}");
+                return null;
+            }
+        }
+
         internal static async Task<string?> ResolveExportDestinationAsync()
         {
             string suggestedFileName = $"shiro-vault-{DateTime.UtcNow:yyyyMMdd}.shirovault";
@@ -207,11 +295,8 @@ namespace Shiro.Services
             if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
                 && desktop.MainWindow?.StorageProvider is { CanSave: true } storageProvider)
             {
-                var file = await storageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
-                {
-                    Title = LocalizationService.Get("Settings.ExportVaultBtn"),
-                    SuggestedFileName = suggestedFileName
-                });
+                var startLocation = await TryGetSuggestedVaultStartLocationAsync(storageProvider);
+                var file = await storageProvider.SaveFilePickerAsync(CreateVaultSaveOptions(suggestedFileName, startLocation));
                 string? localPath = file?.Path.LocalPath;
                 return string.IsNullOrWhiteSpace(localPath) ? null : localPath;
             }
@@ -222,13 +307,11 @@ namespace Shiro.Services
         public async Task<bool> ImportVaultAsync()
         {
             string? path = null;
-            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow?.StorageProvider != null)
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                && desktop.MainWindow?.StorageProvider is { CanOpen: true } storageProvider)
             {
-                var files = await desktop.MainWindow.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
-                {
-                    Title = LocalizationService.Get("Settings.ImportVaultBtn"),
-                    AllowMultiple = false
-                });
+                var startLocation = await TryGetSuggestedVaultStartLocationAsync(storageProvider);
+                var files = await storageProvider.OpenFilePickerAsync(CreateVaultOpenOptions(startLocation));
                 path = files.Count > 0 ? files[0].Path.LocalPath : null;
             }
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
@@ -239,16 +322,73 @@ namespace Shiro.Services
         {
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
 
-            string pass = await AppServices.Dialogs.ShowSecretPromptAsync(
-                LocalizationService.Get("Settings.VaultPassphrasePrompt"),
-                LocalizationService.Get("Settings.ImportVaultBtn"));
-            if (string.IsNullOrWhiteSpace(pass) || pass == "/UC") return false;
-
-            var imported = await Task.Run(() =>
+            IReadOnlyList<Account> imported;
+            if (IsPortableVaultFile(path))
             {
-                using var fs = File.OpenRead(path);
-                return VaultExportService.ImportVault(fs, pass);
-            });
+                string pass = await AppServices.Dialogs.ShowSecretPromptAsync(
+                    LocalizationService.Get("Settings.ImportVaultPassphrasePrompt"),
+                    LocalizationService.Get("Settings.ImportVaultBtn"));
+                if (string.IsNullOrWhiteSpace(pass) || pass == "/UC") return false;
+
+                imported = await Task.Run(() =>
+                {
+                    using var fs = File.OpenRead(path);
+                    return VaultExportService.ImportVault(fs, pass);
+                });
+            }
+            else
+            {
+                var fileInfo = new FileInfo(path);
+                if (fileInfo.Length > VaultExportService.MaxEncryptedVaultBytes)
+                    throw new InvalidDataException($"Backup file exceeds maximum allowed size of {VaultExportService.MaxEncryptedVaultBytes} bytes.");
+
+                byte[] rawBytes = await Task.Run(() => File.ReadAllBytes(path));
+                var decodeKeys = AccountPersistenceService.CreateBackupImportDecodeKeys();
+                var decodeResult = await Task.Run(() => AccountFileDecoder.Decode(rawBytes, masterPassword: null, decodeKeys));
+
+                switch (decodeResult.Status)
+                {
+                    case AccountDecodeStatus.Loaded:
+                        imported = decodeResult.Accounts;
+                        break;
+                    case AccountDecodeStatus.Empty:
+                        imported = Array.Empty<Account>();
+                        break;
+                    case AccountDecodeStatus.NeedsMasterPassword:
+                    {
+                        string pass = await AppServices.Dialogs.ShowSecretPromptAsync(
+                            LocalizationService.Get("Settings.ImportBackupMasterPasswordPrompt"),
+                            LocalizationService.Get("Settings.ImportVaultBtn"));
+                        if (string.IsNullOrWhiteSpace(pass) || pass == "/UC") return false;
+
+                        var retryResult = await Task.Run(() =>
+                        {
+                            byte[] passBytes = Encoding.UTF8.GetBytes(pass);
+                            byte[] hash = SHA512.HashData(passBytes);
+                            try
+                            {
+                                return AccountFileDecoder.Decode(rawBytes, hash, decodeKeys);
+                            }
+                            finally
+                            {
+                                CryptographicOperations.ZeroMemory(passBytes);
+                                CryptographicOperations.ZeroMemory(hash);
+                            }
+                        });
+
+                        if (retryResult.Status == AccountDecodeStatus.Loaded)
+                            imported = retryResult.Accounts;
+                        else if (retryResult.Status == AccountDecodeStatus.NeedsMasterPassword)
+                            throw new CryptographicException("Incorrect Master Password for backup file.");
+                        else
+                            throw new InvalidDataException("Invalid or corrupted backup file.");
+                        break;
+                    }
+                    default:
+                        throw new InvalidDataException("Invalid or unsupported vault or backup file.");
+                }
+            }
+
             int added = 0;
             foreach (var acc in imported)
             {
@@ -263,6 +403,14 @@ namespace Shiro.Services
                 AppServices.HostUiBridge.NotifyAccountsReplaced(AppServices.AccountRepository.GetAll());
             ToastService.ShowSuccess(LocalizationService.Get("Settings.ImportVaultBtn"), LocalizationService.Format("Settings.ImportVaultSuccess", added));
             return added > 0;
+        }
+
+        private static bool IsPortableVaultFile(string path)
+        {
+            Span<byte> header = stackalloc byte[14];
+            using var fs = File.OpenRead(path);
+            int read = fs.Read(header);
+            return VaultExportService.HasVaultHeader(header[..read]);
         }
     }
 }

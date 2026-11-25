@@ -146,6 +146,9 @@ namespace Shiro.Services
         public Task<string> ShowSecretPromptAsync(string message, string title, string defaultValue = "")
             => InputDialog.PromptAsync(message, title, defaultValue, false, null, isSecret: true);
 
+        public Task<string> ShowConfirmedSecretPromptAsync(string message, string title, string defaultValue = "")
+            => InputDialog.PromptAsync(message, title, defaultValue, false, null, isSecret: true, requireConfirmation: true);
+
         public Task<Account?> SignInFastLoginAsync(Account? account, CancellationToken cancellationToken = default)
         {
             if (cancellationToken.IsCancellationRequested)

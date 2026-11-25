@@ -1,6 +1,8 @@
 #nullable enable
 using System;
 using System.Globalization;
+using System.IO;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Shiro.Services;
 
@@ -196,6 +198,8 @@ namespace Shiro.ViewModels.Dialogs
             if (IsBusy) return;
             IsBusy = true;
             try { await _effects.ImportVaultAsync(); }
+            catch (CryptographicException) { _dialogs.ShowError(LocalizationService.Get("Settings.ImportVaultWrongPassword"), LocalizationService.Get("Status_Error")); }
+            catch (InvalidDataException) { _dialogs.ShowError(LocalizationService.Get("Settings.ImportVaultInvalidFile"), LocalizationService.Get("Status_Error")); }
             catch (Exception ex) { _dialogs.ShowError(ex.Message, LocalizationService.Get("Status_Error")); }
             finally { IsBusy = false; }
         }

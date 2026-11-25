@@ -2,8 +2,10 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -223,6 +225,23 @@ namespace Shiro.AvaloniaUI.Views
         {
             _result = MessageBoxResult.No;
             Close();
+        }
+
+        private void BtnCloseHeader_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
+        }
+
+        private void Header_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            for (StyledElement? cur = e.Source as StyledElement; cur != null; cur = cur.Parent)
+            {
+                if (cur is Button)
+                    return;
+            }
+
+            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+                BeginMoveDrag(e);
         }
     }
 }

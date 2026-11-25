@@ -26,6 +26,11 @@ namespace Shiro.Services
         public const int MaxEncryptedVaultBytes = 32 * 1024 * 1024;
         private const int HeaderPrefixSizeBytes = 14 + SaltSizeBytes + NonceSizeBytes + TagSizeBytes; // 58 bytes
 
+        public static bool HasVaultHeader(ReadOnlySpan<byte> data)
+            => data.Length >= HeaderMagic.Length
+               && (data[..HeaderMagic.Length].SequenceEqual(HeaderMagic)
+                   || data[..HeaderMagic.Length].SequenceEqual(LegacyHeaderMagicV1));
+
         /// <summary>
         /// Exports the given accounts to the destination stream encrypted with the user-supplied passphrase.
         /// </summary>

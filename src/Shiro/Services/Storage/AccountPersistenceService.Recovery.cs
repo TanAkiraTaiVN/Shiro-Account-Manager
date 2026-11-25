@@ -299,6 +299,16 @@ namespace Shiro.Services
             }
         }
 
+        internal static AccountDecodeKeys CreateBackupImportDecodeKeys() => new(
+            GetVaultKeyCopy: StoragePaths.GetOrCreateVaultKeyCopy,
+            TryRecoverVaultKey: VaultKeyRecoveryService.TryRecoverInProcess,
+            UnprotectDpapi: data =>
+            {
+                byte[] plain = TryUnprotectAccountData(data, out bool legacy);
+                return (plain, legacy);
+            },
+            PlaintextOptIn: false);
+
         internal string PromoteBackupToPrimary(string saveFilePath, DateTime now)
         {
             string backupPath = $"{saveFilePath}.backup";

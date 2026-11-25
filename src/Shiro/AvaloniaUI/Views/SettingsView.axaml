@@ -250,8 +250,18 @@
                                 <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_MasterPassword}" />
                                 <TextBlock Classes="SettingTip" Text="{DynamicResource Set_MasterPasswordTip}" /></StackPanel>
                             <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <Button Classes="StudioSecondaryBtn" Margin="0,2,8,2" Command="{Binding ExportVaultCommand}" Content="{DynamicResource Settings.ExportVaultBtn}" />
-                                <Button Classes="StudioSecondaryBtn" Margin="0,2,8,2" Command="{Binding ImportVaultCommand}" Content="{DynamicResource Settings.ImportVaultBtn}" />
+                                <Button Classes="StudioSecondaryBtn" Margin="0,2,8,2" Command="{Binding ExportVaultCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <lucide:Lucide Icon="Upload" Width="13" Height="13" StrokeBrush="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Settings.ExportVaultBtn}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Classes="StudioSecondaryBtn" Margin="0,2,8,2" Command="{Binding ImportVaultCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <lucide:Lucide Icon="Download" Width="13" Height="13" StrokeBrush="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Settings.ImportVaultBtn}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
                                 <Button Classes="StudioSecondaryBtn" Margin="0,2,0,2" Command="{Binding ChangeMasterPasswordCommand}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <lucide:Lucide Icon="Key" Width="13" Height="13" StrokeBrush="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center" />
