@@ -4,10 +4,10 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Avalonia" Version="12.1.6" />
+    <PackageVersion Include="Avalonia" Version="12.2.0" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.6" />
-    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.6" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.2.0" />
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.6" />
     <PackageVersion Include="Froststrap.LucideAvalonia" Version="2.0.1" />
     <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4370.26" />
