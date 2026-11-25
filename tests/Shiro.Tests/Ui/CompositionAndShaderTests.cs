@@ -307,10 +307,6 @@ namespace Shiro.Tests.Ui
         [AvaloniaFact]
         public void AmbientBackdropLayer_AttachDetach_UnsubscribesThemeChanged()
         {
-            int baseThemeSubs = GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.ThemeChanged));
-            int basePresetSubs = GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.SurfacePresetChanged));
-            int basePrefSubs = GetPreferencesSubscriberCount();
-
             var layer = new AmbientBackdropLayer
             {
                 PrimaryOrbOpacityScale = 1.2,
@@ -327,9 +323,9 @@ namespace Shiro.Tests.Ui
                 window.Show();
                 Dispatcher.UIThread.RunJobs();
 
-                Assert.Equal(baseThemeSubs + 1, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.ThemeChanged)));
-                Assert.Equal(basePresetSubs + 1, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.SurfacePresetChanged)));
-                Assert.Equal(basePrefSubs + 1, GetPreferencesSubscriberCount());
+                Assert.Equal(1, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.ThemeChanged), layer));
+                Assert.Equal(1, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.SurfacePresetChanged), layer));
+                Assert.Equal(1, GetPreferencesSubscriberCount(layer));
 
                 AccentThemeService.ApplyTheme(AccentTheme.Violet, save: false);
                 AccentThemeService.ApplySurfacePreset(SurfacePreset.MidnightGlass, save: false);
@@ -353,20 +349,20 @@ namespace Shiro.Tests.Ui
                 window.Content = null;
                 Dispatcher.UIThread.RunJobs();
 
-                Assert.Equal(baseThemeSubs, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.ThemeChanged)));
-                Assert.Equal(basePresetSubs, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.SurfacePresetChanged)));
-                Assert.Equal(basePrefSubs, GetPreferencesSubscriberCount());
+                Assert.Equal(0, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.ThemeChanged), layer));
+                Assert.Equal(0, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.SurfacePresetChanged), layer));
+                Assert.Equal(0, GetPreferencesSubscriberCount(layer));
 
                 // Re-attach and detach a second time to verify clean subscription lifecycle.
                 window.Content = layer;
                 Dispatcher.UIThread.RunJobs();
-                Assert.Equal(baseThemeSubs + 1, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.ThemeChanged)));
+                Assert.Equal(1, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.ThemeChanged), layer));
 
                 window.Content = null;
                 Dispatcher.UIThread.RunJobs();
-                Assert.Equal(baseThemeSubs, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.ThemeChanged)));
-                Assert.Equal(basePresetSubs, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.SurfacePresetChanged)));
-                Assert.Equal(basePrefSubs, GetPreferencesSubscriberCount());
+                Assert.Equal(0, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.ThemeChanged), layer));
+                Assert.Equal(0, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.SurfacePresetChanged), layer));
+                Assert.Equal(0, GetPreferencesSubscriberCount(layer));
             }
             finally
             {
@@ -529,22 +525,23 @@ namespace Shiro.Tests.Ui
             finally { window.Content = null; window.Close(); Dispatcher.UIThread.RunJobs(); }
         }
 
-        private static int GetStaticEventSubscriberCount(Type ownerType, string eventFieldName)
+        private static int GetStaticEventSubscriberCount(Type ownerType, string eventFieldName, object target)
         {
             FieldInfo? field = ownerType.GetField(eventFieldName, BindingFlags.Static | BindingFlags.NonPublic);
             Assert.NotNull(field);
-            var del = field!.GetValue(null) as Delegate;
-            return del?.GetInvocationList().Length ?? 0;
+            return CountTarget(field!.GetValue(null) as Delegate, target);
         }
 
-        private static int GetPreferencesSubscriberCount()
+        private static int GetPreferencesSubscriberCount(object target)
         {
             FieldInfo? field = typeof(VisualPreferencesService).GetField(
                 nameof(VisualPreferencesService.PreferencesChanged),
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.NotNull(field);
-            var del = field!.GetValue(VisualPreferencesService.Instance) as Delegate;
-            return del?.GetInvocationList().Length ?? 0;
+            return CountTarget(field!.GetValue(VisualPreferencesService.Instance) as Delegate, target);
         }
+
+        private static int CountTarget(Delegate? del, object target) =>
+            del == null ? 0 : Array.FindAll(del.GetInvocationList(), d => ReferenceEquals(d.Target, target)).Length;
     }
 }

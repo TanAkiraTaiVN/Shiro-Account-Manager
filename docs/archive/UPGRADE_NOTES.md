@@ -154,7 +154,7 @@ Kiểm tra phát hành mới nhất (11/10/2026): sau khi target .NET 10 Windows
 
 ## Đợt hiện đại hóa công nghệ (17/10/2026)
 
-- **Gỡ bỏ thư viện chết `SharpZipLib 1.4.2`**: Loại bỏ package `SharpZipLib` khỏi [RBX Alt Manager.csproj](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/RBX%20Alt%20Manager.csproj) và xóa directive `using ICSharpCode.SharpZipLib.Zip;` thừa trong [AccountManager.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.cs). Dự án tiếp tục dùng `System.IO.Compression` (`ZipArchive`, `ZipFile`) tích hợp sẵn của .NET.
+- **Gỡ bỏ thư viện chết `SharpZipLib 1.4.2`**: Loại bỏ package `SharpZipLib` khỏi RBX Alt Manager.csproj và xóa directive `using ICSharpCode.SharpZipLib.Zip;` thừa trong AccountManager.cs. Dự án tiếp tục dùng `System.IO.Compression` (`ZipArchive`, `ZipFile`) tích hợp sẵn của .NET.
 - **Nâng cấp `System.Management` lên `10.0.13`**: Cập nhật bản vá bảo mật và tương thích WMI mới nhất trên NuGet, cập nhật lock file `packages.lock.json`.
 - **Hiện đại hóa `SharedHttpClient.CreateProxyClient`**: Thay thế `HttpClientHandler` cũ bằng **`SocketsHttpHandler`** hiện đại của .NET, hỗ trợ tối ưu socket pool, timeout kết nối độc lập và giảm tải tài nguyên OS khi kiểm tra proxy hàng loạt.
 - **Dọn dẹp mã nguồn UI không còn dùng**: Xóa bỏ `ModernSettingsDialog.xaml` và `ModernSettingsDialog.xaml.cs` (file dialog độc lập thừa do giao diện cài đặt hiện đại đã được nhúng trực tiếp dạng UserControl qua `ModernSettingsControl.xaml` vào `WpfDashboardView.xaml`).
@@ -164,17 +164,17 @@ Kiểm tra phát hành mới nhất (11/10/2026): sau khi target .NET 10 Windows
   - Thay thế thuật toán giải mã file cũ V1 bằng **`Konscious.Security.Cryptography.Argon2 1.3.1`** (Argon2id managed) và **`NaCl.Net 0.1.13`** (`NaCl.XSalsa20Poly1305` managed).
   - Triệt tiêu 100% nguy cơ bị Windows Defender hoặc các phần mềm Antivirus gắn cờ cảnh báo nhầm (false-positive). File thực thi phát hành giảm được hơn 500 KB dung lượng.
 - **Tối ưu hóa `TryParseJson` với Fast-Path `System.Text.Json`**:
-  - Nâng cấp phương thức mở rộng [Utilities.TryParseJson](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/Utilities.cs#L182) ưu tiên deserialize bằng `System.Text.Json` tốc độ cao trước khi fallback về Newtonsoft.Json, giúp tăng tốc độ đọc dữ liệu JSON và giảm cấp phát bộ nhớ.
+  - Nâng cấp phương thức mở rộng Utilities.TryParseJson ưu tiên deserialize bằng `System.Text.Json` tốc độ cao trước khi fallback về Newtonsoft.Json, giúp tăng tốc độ đọc dữ liệu JSON và giảm cấp phát bộ nhớ.
 - **Tăng cường an toàn `RecentGames`**:
-  - Bổ sung phòng vệ `try/catch` có ghi log khi đọc `RecentGames.json` trong [AccountManager.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.cs#L3540).
+  - Bổ sung phòng vệ `try/catch` có ghi log khi đọc `RecentGames.json` trong AccountManager.cs.
 - **Gỡ bỏ `PuppeteerExtraSharp 3.1.1` và nâng cấp `PuppeteerSharp` lên `25.14.0` (Bản mới nhất)**:
   - Loại bỏ hoàn toàn package cũ `PuppeteerExtraSharp 3.1.1` (vốn đã ngừng bảo trì và khóa chặt PuppeteerSharp ở bản 20.2.2).
   - Nâng cấp `PuppeteerSharp` từ 20.2.2 nhảy vọt 5 thế hệ lên **`25.14.0`** (bản stable mới nhất hiện nay trên NuGet).
   - Tự động hóa cơ chế Stealth chống bot trực tiếp bằng tham số Chromium `--disable-blink-features=AutomationControlled` kết hợp chèn script ẩn danh tính tự nhiên (`navigator.webdriver`, `window.chrome`) qua `EvaluateExpressionOnNewDocumentAsync` trên `IPage`, đạt hiệu quả tàng hình cao hơn mà không cần phụ thuộc plugin bên ngoài.
 - **Thay thế hoàn toàn `log4net` bằng `AppLogger` bất đồng bộ siêu tốc (Zero Dependency)**:
   - Loại bỏ package `log4net 3.5.0`, xóa bỏ vĩnh viễn các file cấu hình XML cồng kềnh `log4.config` và `App.config`.
-  - Xóa bỏ vòng lặp tính mã băm hash và ghi đè sửa chữa file config cũ lúc khởi động trong [Program.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/Program.cs), giúp tăng tốc độ khởi động ứng dụng.
-  - Xây dựng **[AppLogger](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/AppLogger.cs)** bằng kiến trúc `System.Threading.Channels.Channel<string>` chạy ngầm non-blocking hoàn toàn, tự động xoay vòng file log (5 MB rolling backup), đảm bảo 100% không bao giờ làm giật lag giao diện người dùng khi ghi log đồng thời từ nhiều luồng.
+  - Xóa bỏ vòng lặp tính mã băm hash và ghi đè sửa chữa file config cũ lúc khởi động trong Program.cs, giúp tăng tốc độ khởi động ứng dụng.
+  - Xây dựng **AppLogger** bằng kiến trúc `System.Threading.Channels.Channel<string>` chạy ngầm non-blocking hoàn toàn, tự động xoay vòng file log (5 MB rolling backup), đảm bảo 100% không bao giờ làm giật lag giao diện người dùng khi ghi log đồng thời từ nhiều luồng.
 - **Nâng cấp nền tảng Windows SDK Target lên `net10.0-windows10.0.19041.0`**:
   - Chuyển từ mốc Windows 10 17763 (năm 2018) lên **`19041.0`** (Windows 10 2004+ / Windows 11), chuẩn hóa tương thích hệ thống mới nhất.
 - **Kiểm định hoàn hảo toàn diện**:
@@ -186,39 +186,39 @@ Kiểm tra phát hành mới nhất (11/10/2026): sau khi target .NET 10 Windows
 Qua quá trình rà soát chuyên sâu toàn bộ codebase, đã phát hiện và xử lý thành công 10 nhóm lỗi và tối ưu kiến trúc (crash, giật lag chuột, ngoại lệ mạng, tràn số 64-bit, lỗi thread freeze, module hóa code):
 
 1. **Khắc phục lỗi giật/cướp chuột vật lý (`SweepWindowWithMouse`)**:
-   - *Nguyên nhân*: Trong [Utilities.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/Utilities.cs#L107), hàm quét dọn vùng thông báo cửa sổ Roblox trước đây sử dụng vòng lặp P/Invoke `SetCursorPos` kết hợp `Thread.Sleep(2)`. Điều này khiến con trỏ chuột của người dùng bị giật nảy hoặc di chuyển bất ngờ trên màn hình khi Roblox đóng.
+   - *Nguyên nhân*: Trong Utilities.cs, hàm quét dọn vùng thông báo cửa sổ Roblox trước đây sử dụng vòng lặp P/Invoke `SetCursorPos` kết hợp `Thread.Sleep(2)`. Điều này khiến con trỏ chuột của người dùng bị giật nảy hoặc di chuyển bất ngờ trên màn hình khi Roblox đóng.
    - *Khắc phục*: Thay thế hoàn toàn bằng cơ chế ảo hóa gửi thông điệp `PostMessage(hWnd, WM_MOUSEMOVE, ...)` theo tọa độ client rect. Không can thiệp vào con trỏ chuột vật lý của người dùng, không gây đơ luồng và loại bỏ hoàn toàn các P/Invoke không cần thiết.
 
 2. **Khắc phục ngoại lệ phân tích URL và Navigation Context trong Puppeteer**:
-   - *Nguyên nhân*: Trong [AccountBrowser.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/AccountBrowser.cs#L552), việc gọi `new Uri(e.Request.Url)` trực tiếp có thể ném `UriFormatException` đối với các scheme không chuẩn (`data:`, `blob:`, `chrome-extension:`). Ngoài ra, khi Roblox chuyển hướng nhanh `/v2/login` -> `/home`, Puppeteer hủy execution context của trang dẫn đến ngoại lệ `Execution context was destroyed` và `Response body is unavailable for redirect responses` làm ô nhiễm log.
-   - *Khắc phục*: Bổ sung kiểm tra an toàn `Uri.TryCreate`, kiểm tra trạng thái trang `page.IsClosed`, đồng thời bổ sung bộ lọc `IsTransientBrowserException` / `IsDetachedPageException` trong [AccountBrowser.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/AccountBrowser.cs) và [RobloxBrowserLogin.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/RobloxBrowserLogin.cs) để xử lý mượt mà vòng đời điều hướng.
+   - *Nguyên nhân*: Trong AccountBrowser.cs, việc gọi `new Uri(e.Request.Url)` trực tiếp có thể ném `UriFormatException` đối với các scheme không chuẩn (`data:`, `blob:`, `chrome-extension:`). Ngoài ra, khi Roblox chuyển hướng nhanh `/v2/login` -> `/home`, Puppeteer hủy execution context của trang dẫn đến ngoại lệ `Execution context was destroyed` và `Response body is unavailable for redirect responses` làm ô nhiễm log.
+   - *Khắc phục*: Bổ sung kiểm tra an toàn `Uri.TryCreate`, kiểm tra trạng thái trang `page.IsClosed`, đồng thời bổ sung bộ lọc `IsTransientBrowserException` / `IsDetachedPageException` trong AccountBrowser.cs và RobloxBrowserLogin.cs để xử lý mượt mà vòng đời điều hướng.
 
 3. **Khắc phục ngoại lệ `NullReferenceException` khi mạng gặp sự cố**:
-   - *Nguyên nhân*: Trong [AccountManager.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.cs#L1598), phương thức `GetUserID` và một số vị trí khác truy cập thẳng `response.StatusCode` và `response.Content` mà không kiểm tra `response != null` (xảy ra khi mạng timeout, hủy kết nối, hoặc lỗi DNS).
+   - *Nguyên nhân*: Trong AccountManager.cs, phương thức `GetUserID` và một số vị trí khác truy cập thẳng `response.StatusCode` và `response.Content` mà không kiểm tra `response != null` (xảy ra khi mạng timeout, hủy kết nối, hoặc lỗi DNS).
    - *Khắc phục*: Thêm guard clause `response != null` và phòng vệ `try/catch` đầy đủ. Ngoài ra, sửa logic kiểm tra `VIPServer` từ so sánh độ dài chuỗi cố định `== "VIP:"` sang `StartsWith("VIP:", StringComparison.OrdinalIgnoreCase)`.
 
 4. **Khắc phục lỗi `InvalidOperationException` trong truy vấn WMI (`GetCommandLine`)**:
-   - *Nguyên nhân*: Trong [Utilities.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/Utilities.cs#L312), `GetCommandLine` dùng `.Cast<ManagementBaseObject>().SingleOrDefault()`. Khi hệ điều hành tái sử dụng PID hoặc tiến trình đang thoát, WMI có thể trả về nhiều hơn một thực thể, dẫn đến `InvalidOperationException: Sequence contains more than one element`.
+   - *Nguyên nhân*: Trong Utilities.cs, `GetCommandLine` dùng `.Cast<ManagementBaseObject>().SingleOrDefault()`. Khi hệ điều hành tái sử dụng PID hoặc tiến trình đang thoát, WMI có thể trả về nhiều hơn một thực thể, dẫn đến `InvalidOperationException: Sequence contains more than one element`.
    - *Khắc phục*: Bổ sung kiểm tra tiến trình `process == null || process.HasExited` và đổi sang `.FirstOrDefault()`.
 
 5. **Khắc phục lỗi P/Invoke 64-bit và tràn số `OverflowException` trong AccountControl**:
-   - *Nguyên nhân*: Trong [AccountControl.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Nexus/AccountControl.cs#L45), `SendMessage` được khai báo P/Invoke với kiểu `int` cho handle và con trỏ (`int hwnd, int wMsg, int wParam, int lParam`). Đồng thời, khi đo số dòng text đã gọi `l.Handle.ToInt32()`. Trên Windows 64-bit, nếu handle có giá trị vượt quá dải số nguyên 32-bit có dấu, `ToInt32()` sẽ ném ra `OverflowException: Arithmetic operation resulted in an overflow.` làm crash ứng dụng.
+   - *Nguyên nhân*: Trong AccountControl.cs, `SendMessage` được khai báo P/Invoke với kiểu `int` cho handle và con trỏ (`int hwnd, int wMsg, int wParam, int lParam`). Đồng thời, khi đo số dòng text đã gọi `l.Handle.ToInt32()`. Trên Windows 64-bit, nếu handle có giá trị vượt quá dải số nguyên 32-bit có dấu, `ToInt32()` sẽ ném ra `OverflowException: Arithmetic operation resulted in an overflow.` làm crash ứng dụng.
    - *Khắc phục*: Chuẩn hóa P/Invoke `SendMessageW` sử dụng `IntPtr` cho handle và con trỏ, truyền trực tiếp `l.Handle` an toàn 64-bit mà không cần ép kiểu qua `ToInt32()`.
 
 6. **Khắc phục Thread Freeze do `WaitForExit` vô tận**:
-   - *Nguyên nhân*: Trong [AccountControl.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Nexus/AccountControl.cs#L155), phương thức `OpenServer()` chứa lệnh gọi `Process.GetCurrentProcess().WaitForExit();`. Khiến luồng ThreadPool chạy tác vụ này bị treo vĩnh viễn suốt vòng đời ứng dụng.
+   - *Nguyên nhân*: Trong AccountControl.cs, phương thức `OpenServer()` chứa lệnh gọi `Process.GetCurrentProcess().WaitForExit();`. Khiến luồng ThreadPool chạy tác vụ này bị treo vĩnh viễn suốt vòng đời ứng dụng.
    - *Khắc phục*: Gỡ bỏ lệnh `WaitForExit` thừa, khởi chạy listener WebSocket ngầm sạch sẽ bằng `Task.Run(OpenServer)`.
 
 7. **Khắc phục lỗi nghịch đảo Min/Max và văng ứng dụng khi load config số**:
-   - *Nguyên nhân*: Tại [AccountControl.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Nexus/AccountControl.cs#L370), `AutoMinIntervalNum.Value` được gán bằng biểu thức nghịch đảo `Math.Max(Math.Min(val, Minimum), Maximum)`, dẫn đến giá trị luôn bị ép về `Maximum` hoặc có thể gây `ArgumentOutOfRangeException`.
+   - *Nguyên nhân*: Tại AccountControl.cs, `AutoMinIntervalNum.Value` được gán bằng biểu thức nghịch đảo `Math.Max(Math.Min(val, Minimum), Maximum)`, dẫn đến giá trị luôn bị ép về `Maximum` hoặc có thể gây `ArgumentOutOfRangeException`.
    - *Khắc phục*: Chuyển toàn bộ các gán giá trị của NumericUpDown sang dùng hàm mở rộng `.Clamp(Minimum, Maximum)` chuẩn xác, đồng thời kiểm tra biên hợp lệ cho `AutoCloseType.SelectedIndex`.
 
 8. **Tăng cường an toàn truyền thông WebSocket (Nexus)**:
-   - *Nguyên nhân*: Trong [ControlledAccount.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Nexus/ControlledAccount.cs), việc bóc tách `Margin` và `Size` sử dụng `int.Parse` trực tiếp, dễ bị crash khi client truyền chuỗi sai định dạng. Đồng thời việc truy cập index payload không kiểm tra key có thể gây `KeyNotFoundException`, và gửi tin khi socket ngắt kết nối gây ngoại lệ.
+   - *Nguyên nhân*: Trong ControlledAccount.cs, việc bóc tách `Margin` và `Size` sử dụng `int.Parse` trực tiếp, dễ bị crash khi client truyền chuỗi sai định dạng. Đồng thời việc truy cập index payload không kiểm tra key có thể gây `KeyNotFoundException`, và gửi tin khi socket ngắt kết nối gây ngoại lệ.
    - *Khắc phục*: Sử dụng `int.TryParse`, dùng `.TryGetValue` an toàn cho payload, kiểm tra `Context.WebSocket.IsAlive` và bọc `try/catch` chống sập luồng truyền thông.
 
 9. **Phòng vệ crash do phản hồi HTTP bất thường và `NullReferenceException` khi gỡ Control**:
-   - *Nguyên nhân*: Trong [ServerList.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Forms/ServerList.cs), [Utilities.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/Utilities.cs), [MissingAssetControl.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/MissingAssetControl.cs) và [AvatarControl.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/AvatarControl.cs):
+   - *Nguyên nhân*: Trong ServerList.cs, Utilities.cs, MissingAssetControl.cs và AvatarControl.cs:
      - `JObject.Parse` được gọi trực tiếp không có `try/catch` có thể crash khi gặp trang Cloudflare hoặc HTML lỗi.
      - Khi `MissingAssetControl` bị gỡ khỏi form (clear control), sự kiện `ParentChanged` phát sinh với `Parent == null`, truy cập `Parent.Width` gây `NullReferenceException`.
      - `Clipboard.SetText` thiếu try/catch khi truyền chuỗi rỗng hoặc khi clipboard bị ứng dụng khác khóa.
@@ -256,12 +256,12 @@ Qua đợt rà soát và thực thi tái cấu trúc toàn diện, đã giải q
    - `Account.cs`: Đánh dấu `[Obsolete]` phương thức đồng bộ `UnblockEveryone(out string)`, khuyến khích sử dụng `UnblockEveryoneAsync` thuần async không gây deadlock luồng.
 
 2. **Khôi phục và kết nối tính năng Nexus (In-game Controller) lên WPF**:
-   - Thêm lệnh `OpenNexusCommand` và delegate `OnNexusRequested` vào [MainViewModel.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/ViewModels/MainViewModel.cs).
-   - Bổ sung menu item **🎮 Điều khiển Nexus (In-game Controller)** trực tiếp trong menu Tools của [WpfDashboardView.xaml](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/WpfUI/Views/WpfDashboardView.xaml).
-   - Cài đặt handler `OpenNexusWindow()` trong [MainWindow.xaml.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/WpfUI/Views/MainWindow.xaml.cs) mở `AccountControl` an toàn, tự động kích hoạt máy chủ WebSocket và áp dụng theme dark mode.
+   - Thêm lệnh `OpenNexusCommand` và delegate `OnNexusRequested` vào MainViewModel.cs.
+   - Bổ sung menu item **🎮 Điều khiển Nexus (In-game Controller)** trực tiếp trong menu Tools của WpfDashboardView.xaml.
+   - Cài đặt handler `OpenNexusWindow()` trong MainWindow.xaml.cs mở `AccountControl` an toàn, tự động kích hoạt máy chủ WebSocket và áp dụng theme dark mode.
 
 3. **Tách rời trạng thái Place/Job ID khỏi WinForms controls**:
-   - Tách `CurrentPlaceId` và `CurrentJobId` trong [AccountManager.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.cs) thành các static property độc lập có backing field, loại bỏ hoàn toàn nguy cơ `NullReferenceException` khi truy cập ngoài ngữ cảnh WinForms UI.
+   - Tách `CurrentPlaceId` và `CurrentJobId` trong AccountManager.cs thành các static property độc lập có backing field, loại bỏ hoàn toàn nguy cơ `NullReferenceException` khi truy cập ngoài ngữ cảnh WinForms UI.
 
 4. **Triệt tiêu lãng phí tài nguyên và Lazy-Loading toàn bộ WinForms Form phụ**:
    - Loại bỏ việc khởi tạo trùng lặp `WpfDashboardHost` khi ứng dụng đang chạy dưới WPF `MainWindow`.
@@ -269,7 +269,7 @@ Qua đợt rà soát và thực thi tái cấu trúc toàn diện, đã giải q
    - Chuẩn hóa `ApplyTheme()` sử dụng null-conditional operator `?.ApplyTheme()`.
 
 5. **Chuẩn hóa cấu hình Strongly-Typed & Mở rộng Kiểm thử (58 Tests)**:
-   - Xây dựng **[AppSettingsKeys.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/AppSettingsKeys.cs)** gom toàn bộ hằng số section, key cấu hình INI, FastFlags và WebServer, triệt tiêu lỗi typo chuỗi ký tự.
+   - Xây dựng **AppSettingsKeys.cs** gom toàn bộ hằng số section, key cấu hình INI, FastFlags và WebServer, triệt tiêu lỗi typo chuỗi ký tự.
    - Bổ sung các unit tests mới cho `AppSettingsKeysTests`, `AccountDecouplingTests`, kiểm tra static properties và các hàm REST async.
    - Nâng tổng số unit test tự động vượt qua lên **58/58 Passed (100%)**.
 
@@ -281,12 +281,12 @@ Qua đợt rà soát và thực thi tái cấu trúc toàn diện, đã giải q
      - `Controls/ModernControls.cs`
      - `Controls/ModernSettingsPanel.cs`
      - `Controls/ModernDashboardIcons.cs`
-   - Dọn dẹp trường `ModernDashboard` và `WpfDashboardHost` khỏi [AccountManager.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.cs), biến `AccountManager` thành background headless controller điều phối engine thuần túy.
+   - Dọn dẹp trường `ModernDashboard` và `WpfDashboardHost` khỏi AccountManager.cs, biến `AccountManager` thành background headless controller điều phối engine thuần túy.
    - Chuyển toàn bộ cập nhật trạng thái `SetDashboardStatus`, danh sách tài khoản, điều hướng trang và sự kiện Presence trực tiếp sang WPF `MainWindow.Instance` và `MainViewModel`.
    - Giữ nguyên các thư viện `ObjectListView` và `FastColoredTextBox` phục vụ tính năng điều khiển Game `Nexus` và `ServerList`.
 
 7. **Triệt tiêu 100% Lệnh gọi RestSharp Đồng bộ (Zero Synchronous RestSharp Calls)**:
-   - Chuyển đổi toàn bộ phương thức gọi API trong [Account.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/Account.cs), [Account.Api.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/Account.Api.cs), [Account.Launcher.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/Account.Launcher.cs), [AccountManager.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.cs) và [ServerListViewModel.cs](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/ViewModels/ServerListViewModel.cs) sang `await ExecuteAsync(...)`:
+   - Chuyển đổi toàn bộ phương thức gọi API trong Account.cs, Account.Api.cs, Account.Launcher.cs, AccountManager.cs và ServerListViewModel.cs sang `await ExecuteAsync(...)`:
      - `GetUserIDAsync` & `GetUserID`
      - `GetCSRFTokenAsync` & `GetCSRFToken`
      - `GetAuthTicketAsync` & `GetAuthTicket`
@@ -384,7 +384,7 @@ Qua đợt rà soát và thực thi tái cấu trúc toàn diện, đã giải q
         - Chuyển `BaseIntermediateOutputPath` trong `Directory.Build.props` vào `build\artifacts\obj\` để loại bỏ thư mục `obj` thừa trong `build\`.
         - Xóa thư mục cũ trùng lặp `Release-Latest` (12:58 PM).
         - Loại bỏ các file XML documentation và manifest phụ khỏi thư mục đích, bởi vì Icon và Manifest đều đã được nhúng trực tiếp vào resource nhị phân bên trong file EXE.
-      - Sản phẩm xuất xưởng: Thư mục `build\Release\` chỉ chứa duy nhất 1 file thực thi [`Roblox Account Manager.exe`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/build/Release/Roblox%20Account%20Manager.exe) (~71.5 MB), nén gộp toàn bộ runtime .NET 10, WPF, PuppeteerSharp, RestSharp, Argon2 và NaCl.Net, chạy hoàn toàn độc lập mà không cần bất kỳ file phụ nào.
+      - Sản phẩm xuất xưởng: Thư mục `build\Release\` chỉ chứa duy nhất 1 file thực thi `Roblox Account Manager.exe` (~71.5 MB), nén gộp toàn bộ runtime .NET 10, WPF, PuppeteerSharp, RestSharp, Argon2 và NaCl.Net, chạy hoàn toàn độc lập mà không cần bất kỳ file phụ nào.
 
 15. **Triệt tiêu Hoàn toàn Cookie Consent Banner trong Fast Login Dialog**:
     - **Nguyên nhân**: Khi mở dialog đăng nhập nhanh (`ModernFastLoginDialog`), lệnh `DeleteAllCookies()` xóa sạch toàn bộ cookie bao gồm cookie chấp thuận GDPR (`OptanonConsent`), khiến Roblox nhận diện là phiên duyệt web mới và liên tục hiển thị banner Cookie Options che khuất nút Đăng nhập.
@@ -395,9 +395,9 @@ Qua đợt rà soát và thực thi tái cấu trúc toàn diện, đã giải q
 
 16. **Độc lập Hóa Thương hiệu Dự án & Gỡ bỏ Toàn bộ Liên kết GitHub Cũ**:
     - **Tách biệt hoàn toàn khỏi dự án cũ**:
-      - Gỡ bỏ nút "Trang dự án" (`BtnOpenGitHub_Click`) trỏ về repository `ic3w0lf22` trong [`ModernAboutDialog.xaml`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/WpfUI/Views/ModernAboutDialog.xaml).
+      - Gỡ bỏ nút "Trang dự án" (`BtnOpenGitHub_Click`) trỏ về repository `ic3w0lf22` trong `ModernAboutDialog.xaml`.
       - Cập nhật dòng mô tả trong dialog thông tin ứng dụng thành: `"Dự án Shiro Account Manager • Phiên bản 4.1.0 (64-bit)"`.
-      - Viết lại toàn bộ [`README.md`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/README.md) theo chuẩn tài liệu chuyên nghiệp độc lập của **Shiro Account Manager** (.NET 10, Windows x64, WPF), loại bỏ toàn bộ các liên kết, badges, discord và tài liệu gitbook của tác giả cũ.
+      - Viết lại toàn bộ `README.md` theo chuẩn tài liệu chuyên nghiệp độc lập của **Shiro Account Manager** (.NET 10, Windows x64, WPF), loại bỏ toàn bộ các liên kết, badges, discord và tài liệu gitbook của tác giả cũ.
       - Làm sạch header comment trong `RAMAccount.lua` và code comments trong `AccountManager.cs`.
 
 17. **Khắc phục Triệt để Lỗi Roblox Icon Tràn Ngập Khay Hệ Thống & Tiến trình Chạy Ngầm (Zombie)**:
@@ -414,106 +414,106 @@ Qua đợt rà soát và thực thi tái cấu trúc toàn diện, đã giải q
 18. **Bảo Vệ Hoàn Hảo Vòng Đời Khởi Động Roblox & Tự Động Quét Tiến Trình Treo (--launch-to-tray)**:
     - **Vấn đề phát sinh thực tế**: Khi Roblox khởi động lâu hơn 10 giây hoặc chạy ngầm ở chế độ `--launch-to-tray`, bộ quét đơn thể trước đây vẫn cưỡng chế đóng `ROBLOX_singletonEvent` khi tiến trình chưa có cửa sổ (`MainWindowHandle == IntPtr.Zero`). Roblox gặp lỗi `Failure waiting on named event: The handle is invalid` trong hàm `WndProcessCheck`, hủy tiến trình mở game và treo vĩnh viễn trong khay hệ thống cùng `RobloxCrashHandler.exe`.
     - **Bản vá triệt để**:
-      1. *Khóa an toàn cửa sổ tuyệt đối*: Trong [`RobloxSingletonService.CloseEventsIn`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/RobloxSingletonService.cs), TUYỆT ĐỐI KHÔNG BAO GIỜ đóng handle nếu client chưa có cửa sổ game thực sự (`MainWindowHandle == IntPtr.Zero` và `FindWindowForPid == IntPtr.Zero`), bất kể đã trôi qua bao nhiêu giây.
+      1. *Khóa an toàn cửa sổ tuyệt đối*: Trong `RobloxSingletonService.CloseEventsIn`, TUYỆT ĐỐI KHÔNG BAO GIỜ đóng handle nếu client chưa có cửa sổ game thực sự (`MainWindowHandle == IntPtr.Zero` và `FindWindowForPid == IntPtr.Zero`), bất kể đã trôi qua bao nhiêu giây.
       2. *Bỏ qua hoàn toàn tiến trình khay hệ thống*: Nhận diện qua `GetCommandLine()`, bỏ qua hoàn toàn các tiến trình khởi động với tham số `--launch-to-tray`.
-      3. *Tự động dọn dẹp trước khi Launch*: Bổ sung [`RobloxProcessService.CleanZombieProcesses()`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/RobloxProcessService.cs), tự động phát hiện và đóng toàn bộ các tiến trình `RobloxCrashHandler` và các tiến trình `--launch-to-tray` rác tồn đọng trước khi khởi động client mới hoặc khi mở app.
-      4. *Hỗ trợ khay hệ thống toàn diện*: [`Utilities.ThoroughCleanNotificationArea`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/Utilities.cs) và `SweepModernTrayAreas` hỗ trợ đồng thời cả Windows 11 `TopLevelWindowForOverflowXamlIsland` lẫn Windows 10 `NotifyIconOverflowWindow`.
+      3. *Tự động dọn dẹp trước khi Launch*: Bổ sung `RobloxProcessService.CleanZombieProcesses()`, tự động phát hiện và đóng toàn bộ các tiến trình `RobloxCrashHandler` và các tiến trình `--launch-to-tray` rác tồn đọng trước khi khởi động client mới hoặc khi mở app.
+      4. *Hỗ trợ khay hệ thống toàn diện*: `Utilities.ThoroughCleanNotificationArea` và `SweepModernTrayAreas` hỗ trợ đồng thời cả Windows 11 `TopLevelWindowForOverflowXamlIsland` lẫn Windows 10 `NotifyIconOverflowWindow`.
 
 19. **Tái Cấu Trúc Toàn Diện Kiến Trúc (Architecture Modernization & Decoupling)**:
-    - **Tách nhỏ God Utility ([`Utilities.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/Utilities.cs))**:
+    - **Tách nhỏ God Utility (`Utilities.cs`)**:
       - Phân tách lớp tiện ích 700 dòng thành các Service và Helper đơn nhiệm:
-        - [`Services/Win32TrayHelper.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/Win32TrayHelper.cs): Chứa toàn bộ P/Invoke Win32, quét dọn khay hệ thống, Windows 11 XAML Island.
-        - [`Services/JsonExtensions.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/JsonExtensions.cs): Quản lý JSON serialization & FastJson.
-        - [`Services/ProcessExtensions.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/ProcessExtensions.cs): Trích xuất tham số dòng lệnh `GetCommandLine` an toàn.
-        - [`Services/RobloxPlaceHelper.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/RobloxPlaceHelper.cs): Logic lấy Job ID ngẫu nhiên, Roblox ticks và ánh xạ giá trị.
-        - [`Services/ClipboardHelper.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/ClipboardHelper.cs): Thao tác Clipboard Windows có retry chống xung đột tiến trình.
-        - [`Services/CryptoHelper.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/CryptoHelper.cs): Hàm băm MD5 và SHA256 tối ưu.
-        - [`Http/HttpExtensions.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Http/HttpExtensions.cs): Tiện ích tải tệp và stream async.
+        - `Services/Win32TrayHelper.cs`: Chứa toàn bộ P/Invoke Win32, quét dọn khay hệ thống, Windows 11 XAML Island.
+        - `Services/JsonExtensions.cs`: Quản lý JSON serialization & FastJson.
+        - `Services/ProcessExtensions.cs`: Trích xuất tham số dòng lệnh `GetCommandLine` an toàn.
+        - `Services/RobloxPlaceHelper.cs`: Logic lấy Job ID ngẫu nhiên, Roblox ticks và ánh xạ giá trị.
+        - `Services/ClipboardHelper.cs`: Thao tác Clipboard Windows có retry chống xung đột tiến trình.
+        - `Services/CryptoHelper.cs`: Hàm băm MD5 và SHA256 tối ưu.
+        - `Http/HttpExtensions.cs`: Tiện ích tải tệp và stream async.
       - Giữ `Utilities.cs` như một facade tương thích 100% với code cũ.
     - **Tách Tầng Dịch Vụ Domain & Nghiệp Vụ Tài Khoản**:
-      - [`Services/IRobloxSessionService.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/IRobloxSessionService.cs) & [`Services/RobloxSessionService.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/RobloxSessionService.cs): Quản lý vòng đời phiên đăng nhập, kiểm tra session, Robux, CSRF, auth-ticket, PIN và mở khóa tài khoản.
-      - [`Services/IRobloxLauncherService.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/IRobloxLauncherService.cs) & [`Services/RobloxLauncherService.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/RobloxLauncherService.cs): Trừu tượng hóa việc tìm kiếm client và khởi động game.
-      - [`Services/IAccountRepository.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/IAccountRepository.cs) & [`Services/AccountRepository.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/AccountRepository.cs): Quản lý lưu trữ dữ liệu, CRUD, mã hóa và sao lưu tệp tài khoản.
+      - `Services/IRobloxSessionService.cs` & `Services/RobloxSessionService.cs`: Quản lý vòng đời phiên đăng nhập, kiểm tra session, Robux, CSRF, auth-ticket, PIN và mở khóa tài khoản.
+      - `Services/IRobloxLauncherService.cs` & `Services/RobloxLauncherService.cs`: Trừu tượng hóa việc tìm kiếm client và khởi động game.
+      - `Services/IAccountRepository.cs` & `Services/AccountRepository.cs`: Quản lý lưu trữ dữ liệu, CRUD, mã hóa và sao lưu tệp tài khoản.
     - **Chuẩn Hóa MVVM & Rút Gọn Code-Behind**:
-      - [`Services/IDialogService.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/IDialogService.cs) & [`Services/WpfDialogService.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/WpfDialogService.cs): Tách toàn bộ việc hiển thị MessageBox và Dialogs khỏi ViewModel và Controllers, tự động điều hướng sang UI Dispatcher.
-      - [`Services/AccountWorkflowService.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/AccountWorkflowService.cs): Tách toàn bộ quy trình nghiệp vụ (kiểm tra session hàng loạt, Re-login, sửa Alias, Group, Pin, Copy dữ liệu) khỏi [`MainWindow.xaml.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/WpfUI/Views/MainWindow.xaml.cs), giúp code-behind giảm hơn 350 dòng code thừa.
-      - [`Services/AppServices.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/AppServices.cs): Cung cấp Service Container trung tâm, sẵn sàng cho Dependency Injection.
+      - `Services/IDialogService.cs` & `Services/WpfDialogService.cs`: Tách toàn bộ việc hiển thị MessageBox và Dialogs khỏi ViewModel và Controllers, tự động điều hướng sang UI Dispatcher.
+      - `Services/AccountWorkflowService.cs`: Tách toàn bộ quy trình nghiệp vụ (kiểm tra session hàng loạt, Re-login, sửa Alias, Group, Pin, Copy dữ liệu) khỏi `MainWindow.xaml.cs`, giúp code-behind giảm hơn 350 dòng code thừa.
+      - `Services/AppServices.cs`: Cung cấp Service Container trung tâm, sẵn sàng cho Dependency Injection.
     - **Tái Cấu Trúc Chuyên Sâu Tầng Settings, Server Query & Browser Automation**:
-      - [`Services/AppSettings.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/AppSettings.cs): Thay thế toàn bộ "magic strings" của cấu hình INI bằng các thuộc tính strongly-typed (`AppSettings.Current.EnableMultiRbx`, `AccountJoinDelay`, `SavePasswords`,...).
-      - [`Services/IRobloxServerQueryService.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/IRobloxServerQueryService.cs) & [`Services/RobloxServerQueryService.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/RobloxServerQueryService.cs): Tách toàn bộ việc đo Ping, tra cứu GeoIP (`ip-api.com`), và truy vấn danh sách server Roblox ra khỏi [`ServerListViewModel.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/ViewModels/ServerListViewModel.cs).
-      - [`Services/ChromeLaunchHelper.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/ChromeLaunchHelper.cs): Thống nhất các flags Chrome (`StandardArgs`), anti-detection scripts (`ApplyAntiDetectionAsync`), cookie consent mitigation và dọn dẹp profile an toàn cho toàn bộ tầng tự động hóa trình duyệt.
-      - [`Services/PrerequisiteService.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/PrerequisiteService.cs): Tách tác vụ kiểm tra registry và tải tự động Visual C++ Redistributable ra khỏi [`AccountManager.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.cs).
+      - `Services/AppSettings.cs`: Thay thế toàn bộ "magic strings" của cấu hình INI bằng các thuộc tính strongly-typed (`AppSettings.Current.EnableMultiRbx`, `AccountJoinDelay`, `SavePasswords`,...).
+      - `Services/IRobloxServerQueryService.cs` & `Services/RobloxServerQueryService.cs`: Tách toàn bộ việc đo Ping, tra cứu GeoIP (`ip-api.com`), và truy vấn danh sách server Roblox ra khỏi `ServerListViewModel.cs`.
+      - `Services/ChromeLaunchHelper.cs`: Thống nhất các flags Chrome (`StandardArgs`), anti-detection scripts (`ApplyAntiDetectionAsync`), cookie consent mitigation và dọn dẹp profile an toàn cho toàn bộ tầng tự động hóa trình duyệt.
+      - `Services/PrerequisiteService.cs`: Tách tác vụ kiểm tra registry và tải tự động Visual C++ Redistributable ra khỏi `AccountManager.cs`.
     - **Mở Rộng Unit Tests**:
-      - Bổ sung bộ test [`tests/RBX_Alt_Manager.Tests/RefactoredServicesTests.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/tests/RBX_Alt_Manager.Tests/RefactoredServicesTests.cs) kiểm thử toàn bộ các helper, repository, settings strongly-typed và server query service mới.
+      - Bổ sung bộ test `tests/RBX_Alt_Manager.Tests/RefactoredServicesTests.cs` kiểm thử toàn bộ các helper, repository, settings strongly-typed và server query service mới.
 
 20. **Triệt Tiêu Dead Code & Tinh Gọn Toàn Bộ `AccountManager.ModernActions.cs`**:
     - **Thanh lọc triệt để mã nguồn thừa**:
-      - `AccountManager.ModernActions.cs` trước đây chứa 1,126 dòng với hơn 35 phương thức cục bộ dư thừa (các hàm thêm tài khoản cũ, re-login cũ, copy clipboard cũ, hiển thị dialog cũ) đã được thay thế hoàn toàn bởi [`AccountWorkflowService.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/AccountWorkflowService.cs) và [`WpfDialogService.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/WpfDialogService.cs).
+      - `AccountManager.ModernActions.cs` trước đây chứa 1,126 dòng với hơn 35 phương thức cục bộ dư thừa (các hàm thêm tài khoản cũ, re-login cũ, copy clipboard cũ, hiển thị dialog cũ) đã được thay thế hoàn toàn bởi `AccountWorkflowService.cs` và `WpfDialogService.cs`.
       - Đã thanh lọc và loại bỏ ~920 dòng mã không còn sử dụng, chỉ giữ lại các điểm kết nối cốt lõi với WPF launcher: `SetDashboardStatus`, `ModernLaunchAccountAppHome`, `ModernOpenAccountHomeChrome`, `GetCurrentSelectedAccounts`, `ModernOpenAccountControl`, `ModernMultiLaunch`, `ModernJoinServerDirect`, và `ModernCloseRoblox`.
       - Chuyển trường `IsDownloadingChromium` thành public auto-property sạch sẽ, loại bỏ triệt để cảnh báo trình biên dịch `CS0414`.
 
 21. **Tối Ưu Hóa Kiến Trúc Chuyên Sâu (Elite Architecture Refactoring)**:
-    - **Bóc tách Sub-ViewModels Đơn Nhiệm khỏi [`ServerListViewModel.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/ViewModels/ServerListViewModel.cs)**:
+    - **Bóc tách Sub-ViewModels Đơn Nhiệm khỏi `ServerListViewModel.cs`**:
       - Phân rã 3 class con đang nằm gộp trong file sang các tệp MVVM độc lập:
-        - [`ViewModels/ServerItemViewModel.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/ViewModels/ServerItemViewModel.cs): Quản lý từng server game (JobId, Ping, MaxPlayers, Region, Ip).
-        - [`ViewModels/GameSearchItemViewModel.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/ViewModels/GameSearchItemViewModel.cs): Kết quả tìm kiếm game (PlaceId, Name, PlayerCount, Thumbnail).
-        - [`ViewModels/FavoriteGameItemViewModel.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/ViewModels/FavoriteGameItemViewModel.cs): Danh sách game yêu thích & VIP server link.
+        - `ViewModels/ServerItemViewModel.cs`: Quản lý từng server game (JobId, Ping, MaxPlayers, Region, Ip).
+        - `ViewModels/GameSearchItemViewModel.cs`: Kết quả tìm kiếm game (PlaceId, Name, PlayerCount, Thumbnail).
+        - `ViewModels/FavoriteGameItemViewModel.cs`: Danh sách game yêu thích & VIP server link.
       - Giúp `ServerListViewModel.cs` giảm từ 1,108 dòng xuống còn 959 dòng, tuân thủ nghiêm ngặt nguyên lý Single Responsibility Principle (SRP).
-    - **Tách Bộ Định Tuyến HTTP WebServer khỏi [`AccountManager.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.cs)**:
+    - **Tách Bộ Định Tuyến HTTP WebServer khỏi `AccountManager.cs`**:
       - Tách toàn bộ gần 400 dòng mã của phương thức định tuyến HTTP REST API (`SendResponse`, `WebServerResponse`, `AttemptedJoins`, xử lý `/v2/`, `/Running`, `/GetAccounts`, `/LaunchAccount`, `/KillRoblox`, CORS, Bearer Token) sang tệp partial class độc lập:
-        - [`AccountManager.WebServer.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.WebServer.cs).
+        - `AccountManager.WebServer.cs`.
       - Giúp `AccountManager.cs` giảm từ 2,063 dòng xuống còn 1,687 dòng (giảm 376 dòng), cô lập hoàn toàn logic tầng mạng REST API khỏi lõi quản lý tài khoản.
-    - **Tích Hợp Đồng Bộ [`ChromeLaunchHelper.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/ChromeLaunchHelper.cs) Toàn Diện**:
-      - Thay thế toàn bộ mã tiêm script `webdriver` thủ công trong [`RobloxBrowserLogin.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/RobloxBrowserLogin.cs) bằng `ChromeLaunchHelper.ApplyAntiDetectionAsync(page)`.
-      - Bổ sung anti-detection và tự động dỡ bỏ banner Cookie Consent OneTrust (`DismissCookieBannerAsync`) trong [`RobloxBrowserSignup.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/RobloxBrowserSignup.cs), chống nghẽn form đăng ký tài khoản.
+    - **Tích Hợp Đồng Bộ `ChromeLaunchHelper.cs` Toàn Diện**:
+      - Thay thế toàn bộ mã tiêm script `webdriver` thủ công trong `RobloxBrowserLogin.cs` bằng `ChromeLaunchHelper.ApplyAntiDetectionAsync(page)`.
+      - Bổ sung anti-detection và tự động dỡ bỏ banner Cookie Consent OneTrust (`DismissCookieBannerAsync`) trong `RobloxBrowserSignup.cs`, chống nghẽn form đăng ký tài khoản.
     - **Đóng gói sản phẩm phát hành mới nhất**:
       - Chạy tự động `build\Publish.ps1` đóng gói lại phiên bản Single-File Executable sạch sẽ, đạt dung lượng tối ưu ~71.4 MB chứa đầy đủ runtime .NET 10, WPF và các thư viện native.
 
 22: **Loại Bỏ Mọi Chỉ Thị Bỏ Qua Cảnh Báo (`#pragma`) & Kích Hoạt `TreatWarningsAsErrors=true`**:
     - **Triệt tiêu toàn bộ pragma warning disable**:
-      - Gỡ bỏ hoàn toàn `#pragma warning disable CS0618` trong [`AccountManager.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.cs).
-      - Gỡ bỏ hoàn toàn `#pragma warning disable CS8632` trong [`Classes/Presence.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/Presence.cs).
+      - Gỡ bỏ hoàn toàn `#pragma warning disable CS0618` trong `AccountManager.cs`.
+      - Gỡ bỏ hoàn toàn `#pragma warning disable CS8632` trong `Classes/Presence.cs`.
       - Toàn bộ codebase hiện đạt trạng thái **0 chỉ thị pragma, 0 TODO, 0 HACK, 0 FIXME**.
     - **Kích hoạt chế độ kiểm soát chất lượng khắt khe nhất**:
-      - Cập nhật [`RBX Alt Manager.csproj`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/RBX%20Alt%20Manager.csproj) với `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`.
+      - Cập nhật `RBX Alt Manager.csproj` với `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`.
       - Bất kỳ cảnh báo nào xuất hiện trong tương lai sẽ lập tức bị chặn ngay từ trình biên dịch, đảm bảo chất lượng mã nguồn luôn giữ vững tiêu chuẩn hoàn hảo.
 
 23: **Nâng Cấp Toàn Diện Độ Tin Cậy, Sao Lưu Lịch Sử, Chống Rate-Limit & CI/CD**:
-    - **Cơ Chế Sao Lưu Lịch Sử Xoay Vòng ([`AccountStore.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/AccountStore.cs))**:
+    - **Cơ Chế Sao Lưu Lịch Sử Xoay Vòng (`AccountStore.cs`)**:
       - Bổ sung `StoragePaths.BackupsDirectory` và cơ chế tạo bản sao lưu gắn timestamp trong thư mục `Backups/` trước mỗi lần ghi đè dữ liệu tài khoản (`CreateHistoricalBackup`).
       - Tự động xoay vòng giữ lại tối đa 10 bản sao lưu gần nhất (`AccountData_yyyyMMdd_HHmmss.json.bak`) và tự động dọn dẹp các bản quá cũ.
       - Hỗ trợ API phục hồi an toàn: `GetHistoricalBackups()` và `RestoreHistoricalBackup(...)`.
-      - Bổ sung bộ Unit Tests chuyên biệt: [`tests/RBX_Alt_Manager.Tests/AccountStoreBackupTests.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/tests/RBX_Alt_Manager.Tests/AccountStoreBackupTests.cs) (mở rộng test suite lên **97 tests, 100% Passed**).
-    - **Tăng Cường Chống Nghẽn HTTP 429 ([`Account.Api.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/Account.Api.cs))**:
+      - Bổ sung bộ Unit Tests chuyên biệt: `tests/RBX_Alt_Manager.Tests/AccountStoreBackupTests.cs` (mở rộng test suite lên **97 tests, 100% Passed**).
+    - **Tăng Cường Chống Nghẽn HTTP 429 (`Account.Api.cs`)**:
       - Tích hợp `RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, response)` vào các endpoint nhạy cảm `GetCSRFTokenAsync` và `GetAuthTicketAsync`.
       - Khi Roblox kích hoạt rate-limit, toàn bộ ứng dụng tự động backoff có trễ ngẫu nhiên (jitter), tránh bị khóa IP hàng loạt.
-    - **Tự Động Hóa Kiểm Thử CI/CD ([`.github/workflows/build.yml`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/.github/workflows/build.yml))**:
+    - **Tự Động Hóa Kiểm Thử CI/CD (`.github/workflows/build.yml`)**:
       - Bổ sung lệnh `dotnet test` tự động kiểm tra toàn bộ 97 unit tests trên Windows runner trước khi tiến hành đóng gói phát hành.
     - **Chuẩn Hóa 100% Việt Hóa Thông Điệp Trạng Thái Giao Diện**:
-      - Việt hóa toàn diện các thông điệp đóng tiến trình Roblox, kích hoạt Multi Roblox, hủy/hoàn tất hàng đợi mở game, và trạng thái đăng ký tài khoản tự động trong [`AccountManager.ModernActions.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.ModernActions.cs), [`AccountManager.Launch.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.Launch.cs), [`AccountManager.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.cs), và [`Classes/RobloxBrowserSignup.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Classes/RobloxBrowserSignup.cs).
+      - Việt hóa toàn diện các thông điệp đóng tiến trình Roblox, kích hoạt Multi Roblox, hủy/hoàn tất hàng đợi mở game, và trạng thái đăng ký tài khoản tự động trong `AccountManager.ModernActions.cs`, `AccountManager.Launch.cs`, `AccountManager.cs`, và `Classes/RobloxBrowserSignup.cs`.
     - **Đóng gói sản phẩm phát hành mới nhất**:
       - Chạy tự động `build\Publish.ps1` đóng gói lại phiên bản Single-File Executable sạch sẽ, đạt dung lượng tối ưu ~71.4 MB chứa đầy đủ runtime .NET 10, WPF và các thư viện native.
 
 24: **Khắc Phục Triệt Để Lỗi Chèn Icon Tìm Kiếm & Lỗi Nhận Diện Master Password Giả**:
-    - **Sửa Lỗi Hiển Thị Ô Tìm Kiếm Dashboard ([`WpfDashboardView.xaml`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/WpfUI/Views/WpfDashboardView.xaml))**:
+    - **Sửa Lỗi Hiển Thị Ô Tìm Kiếm Dashboard (`WpfDashboardView.xaml`)**:
       - *Nguyên nhân*: Phần tử icon kính lúp `<Path>` nằm trong Grid thiếu `HorizontalAlignment="Left"`. Khi đó, WPF mặc định căn giữa phần tử trong ô Grid (tại ~92px), dẫn đến icon bị vẽ đè trực tiếp lên chữ gợi ý `"1-10..."` tạo thành `"Search name, 🔍 10..."`.
       - *Giải pháp*: Thiết lập `HorizontalAlignment="Left"` cho cả icon `<Path>` (ở lề trái X=8px) và `<TextBlock>` gợi ý (bắt đầu từ X=24px), tăng độ rộng khung lên 180px và đặt `Padding="24,0,22,0"`.
-    - **Sửa Lỗi Khóa Oan Màn Hình Master Password ([`AccountManager.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/AccountManager.cs))**:
+    - **Sửa Lỗi Khóa Oan Màn Hình Master Password (`AccountManager.cs`)**:
       - *Nguyên nhân*: Trước đây, `AccountManager.IsDatabasePasswordEncrypted()` chỉ kiểm tra `Cryptography.IsEncrypted(data)`. Tuy nhiên, ngay cả khi người dùng KHÔNG đặt mật khẩu chính, Shiro vẫn tự động mã hóa AES-256-GCM bằng `vault.key` nội bộ để bảo mật dữ liệu. Vì thế hàm luôn trả về `true`, khiến màn hình mở khóa Master Password luôn bật lên đòi hỏi mật khẩu mà người dùng chưa từng đặt.
       - *Giải pháp*: Cập nhật `IsDatabasePasswordEncrypted()` thử giải mã bằng `vault.key` trước. Nếu giải mã thành công thì xác nhận KHÔNG có mật khẩu người dùng (trả về `false` để tải ngay danh sách tài khoản). Chỉ khi không giải mã được bằng `vault.key` thì mới xác nhận là tệp được bảo vệ bằng mật khẩu chính do người dùng thiết lập (trả về `true`).
 
 25: **Tích Hợp Cổng WebSocket Real-Time Event Gateway & Native Luau Anti-AFK**:
-    - **WebSocket Event Gateway Trên ASP.NET Core Kestrel ([`KestrelWebServer.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RBX%20Alt%20Manager/Services/KestrelWebServer.cs))**:
+    - **WebSocket Event Gateway Trên ASP.NET Core Kestrel (`KestrelWebServer.cs`)**:
       - Hỗ trợ kết nối song song WebSocket real-time (`/ws`, `/events`, `/v2/events`) bên cạnh các endpoint REST truyền thống.
       - Tự động phát sóng (broadcast) các sự kiện hệ thống theo thời gian thực (`launch_progress`, `anti_afk`, `multi_roblox`, `system`) tới tất cả các client/bot kết nối.
       - Giảm tải CPU và lưu lượng mạng localhost về 0% khi chờ sự kiện, thay thế hoàn toàn nhu cầu polling liên tục `/Running` hay `/GetAccounts`.
       - Tích hợp xác thực bảo mật token/password WebSocket thông minh qua query string (`?token=...`, `?password=...`), header `X-RAM-Auth` hoặc `Authorization: Bearer`.
-    - **Native Luau Anti-AFK Trong [`RAMAccount.lua`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/RAMAccount.lua)**:
+    - **Native Luau Anti-AFK Trong `RAMAccount.lua`**:
       - Bổ sung `Account.EnableInGameAntiAfk()` và `Account.DisableInGameAntiAfk()` sử dụng trực tiếp dịch vụ `game:GetService("VirtualUser")` của Roblox.
       - Cho phép client Roblox tự động giữ kết nối từ bên trong engine mà không cần Shiro can thiệp gửi thông điệp phím ảo Win32 `PostMessage` từ bên ngoài.
       - Bổ sung `Account.ConnectEvents(callback)` cho phép script Lua trong game nhận trực tiếp sự kiện từ Shiro qua WebSocket.
     - **Mở rộng Unit Test Suite**:
-      - Bổ sung [`tests/RBX_Alt_Manager.Tests/WebSocketGatewayTests.cs`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/tests/RBX_Alt_Manager.Tests/WebSocketGatewayTests.cs) nâng tổng số test suite lên **217/217 Tests Passed (100%)**.
+      - Bổ sung `tests/RBX_Alt_Manager.Tests/WebSocketGatewayTests.cs` nâng tổng số test suite lên **217/217 Tests Passed (100%)**.
 
 ---
 
@@ -521,4 +521,4 @@ Qua đợt rà soát và thực thi tái cấu trúc toàn diện, đã giải q
 
 - `dotnet build`: **0 Warning(s), 0 Error(s)** dưới cờ nghiêm ngặt `TreatWarningsAsErrors=true` trên toàn bộ project và test suite.
 - `dotnet test`: **217/217 Tests Passed (100%)**, thời gian chạy ~500 ms.
-- `Single-File Executable`: [`build\Release\Roblox Account Manager.exe`](file:///d:/D%E1%BB%B1%20%C3%81n%20Visual/Shiro-Account-Manager/build/Release/Roblox%20Account%20Manager.exe) (v4.1.0).
+- `Single-File Executable`: `build\Release\Roblox Account Manager.exe` (v4.1.0).

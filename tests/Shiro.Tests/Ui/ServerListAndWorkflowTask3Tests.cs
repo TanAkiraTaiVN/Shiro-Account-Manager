@@ -108,12 +108,11 @@ namespace Shiro.Tests.Ui
                 vm.SearchPlayerUsername = "TargetPlayer";
                 vm.PropertyChanged += (_, e) =>
                 {
-                    if (e.PropertyName == nameof(ServerListViewModel.PlayerSearchStatus)
-                        && Environment.CurrentManagedThreadId != uiThreadId)
+                    if (e.PropertyName == nameof(ServerListViewModel.PlayerSearchStatus))
                     {
                         if (Volatile.Read(ref inDispatchDepth) > 0)
                             Interlocked.Increment(ref statusUpdatedInsideDispatch);
-                        else
+                        else if (Environment.CurrentManagedThreadId != uiThreadId)
                             Interlocked.Increment(ref statusUpdatedOutsideDispatch);
                     }
                 };

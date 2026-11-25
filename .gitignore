@@ -334,6 +334,7 @@ __pycache__/
 # Shiro: user data & scratch (never commit)
 .worktrees/
 .superpowers/
+docs/superpowers/
 scratch/
 RAMSettings.json
 *.backup

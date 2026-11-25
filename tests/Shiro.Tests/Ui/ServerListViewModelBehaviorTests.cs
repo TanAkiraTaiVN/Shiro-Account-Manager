@@ -127,7 +127,13 @@ namespace Shiro.Tests
         {
             using (StoragePaths.OverrideDataDirectoryForTesting(_testDir))
             {
-                var mainVm = new MainViewModel();
+                var handler = new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ =>
+                    new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                    {
+                        Content = new System.Net.Http.StringContent("{\"data\":[]}")
+                    });
+                using var apiScope = AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
+                using var mainVm = new MainViewModel();
                 var vm = mainVm.ServerListViewModel;
 
                 var gameItem = new GameSearchItemViewModel
@@ -143,6 +149,7 @@ namespace Shiro.Tests
                 Assert.Equal("987654321", vm.PlaceIdInput);
                 Assert.Equal("987654321", mainVm.PlaceId);
                 Assert.Equal(0, vm.SelectedSubTabIndex);
+                vm.CancelOperation();
 
                 // LaunchGame with no selected accounts sets warning status
                 vm.LaunchGameCommand.Execute(gameItem);
